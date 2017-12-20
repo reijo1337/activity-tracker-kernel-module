@@ -12,7 +12,6 @@
 
 MODULE_LICENSE("GPL");
 
-
 ssize_t fortune_read(struct file *file, char *buf, size_t count, loff_t *f_pos);
 ssize_t fortune_write(struct file *file, const char *buf, size_t count, loff_t *f_pos);
 
@@ -34,6 +33,19 @@ char *cookie_buf;
 struct proc_dir_entry *proc_file;
 
 static struct timer_list my_timer;
+
+static bool daemonStarted = false;
+
+int umh_test(void)
+{
+  char *argv[] = { "/usr/bin/WindowTracker", NULL };
+  static char *envp[] = {
+        "HOME=/",
+        "TERM=linux",
+        "PATH=/sbin:/bin:/usr/sbin:/usr/bin", NULL };
+
+  return call_usermodehelper( argv[0], argv, envp, UMH_NO_WAIT );
+}
 
 ssize_t fortune_read(struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
@@ -66,7 +78,6 @@ void my_timer_callback(unsigned long data)
 	printk( "time-tracker: my_timer_callback called (%ld).\n", jiffies );
   
 	printk("time-tracker: %s\n", cookie_buf);
-	
   	setup_timer( &my_timer, my_timer_callback, 0 );
 
   	printk( "time-tracker: Starting timer to fire in (%ld)\n", jiffies );
