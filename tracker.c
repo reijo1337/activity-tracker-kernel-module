@@ -36,24 +36,21 @@ struct proc_dir_entry *proc_file;
 static struct timer_list my_timer;
 
 typedef struct window_time {
-	char *name;
+	char name[30];
 	int secs;
 	int mins;
 	int hours;
 	int days;
-};
+} window_time;
 
-struct window_time *programs;
+window_time *programs;
 int n, max;
 
 ssize_t fortune_read(struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
 	int len = 0;
 	int i;
-	for (i=0; i < n; i++)
-	{
-		len += sprintf(buf, "%s: %d:%d:%d:%d\n", programs[i].name, programs[i].days, programs[i].hours, programs[i].mins, programs[i].secs);
-	}
+	len += sprintf(buf, "%s: %d:%d:%d:%d\n", programs[0].name, programs[0].days, programs[0].hours, programs[0].mins, programs[0].secs);
 
 	return len;
 }
@@ -99,47 +96,34 @@ void inc_time(int i)
 	}
 }
 
-void update_stat(char *program_name)
-{
-	bool checked = false;
-	int i;
-	for (i = 0; i < n; i++) 
-	{
-		if (strcmp(programs[i].name, program_name) == 0) 
-		{
-			inc_time(i);
-			checked = true;
-		}
-	}
-	if (!checked)
-	{
-		if (n == max)
-		{
-			struct window_time *new_programs;
-			new_programs = (struct window_time*)kmalloc(max*2*sizeof(struct window_time), GFP_KERNEL);
-			for (i=0; i < n; i++)
-			{
-				new_programs[i] = programs[i];
-			}
-			kfree(programs);
-			programs = new_programs;
-			max = 2*max;
-		}
-		strcpy(programs[n].name, program_name);
-		programs[n].secs = 1;
-		programs[n].mins = 0;
-		programs[n].hours = 0;
-		programs[n].days = 0;
-		n++;
-	}
-}
-
 void my_timer_callback(unsigned long data)
 {
 	printk( "time-tracker: my_timer_callback called (%ld).\n", jiffies );
   
-	printk("time-tracker: %s\n", cookie_buf);
-	update_stat(cookie_buf);
+	if (strcmp(cookie_buf, "") != 0) {
+		bool checked = false;
+		int i;
+		for (i = 0; i < n; i++) 
+		{
+			if (strcmp(programs[i].name, cookie_buf) == 0) 
+			{
+				inc_time(i);
+				checked = true;
+			}
+		}
+		if (!checked)
+		{
+			window_time one;
+			strcpy(one.name, cookie_buf);
+			one.secs = 1;
+			one.mins = 0;
+			one.hours = 0;
+			one.days = 0;
+			programs[n] = one;
+			n++;
+		}
+	}
+  
   	setup_timer( &my_timer, my_timer_callback, 0 );
 
   	printk( "time-tracker: Starting timer to fire in (%ld)\n", jiffies );
@@ -148,7 +132,7 @@ void my_timer_callback(unsigned long data)
 
 int fortune_init(void)
 {	
-	programs = (struct window_time*)kmalloc(10*sizeof(struct window_time), GFP_KERNEL);
+	programs = (window_time*)vmalloc(10*sizeof(window_time));
 	n = 0;
 	max = 10;
 	if (!programs)
@@ -196,7 +180,7 @@ void fortune_exit(void)
 		vfree(cookie_buf);
 	
 	if (programs)
-		kfree(programs);
+		vfree(programs);
 
 	if (del_timer( &my_timer )) 
 		printk("The timer is still in use...\n");
