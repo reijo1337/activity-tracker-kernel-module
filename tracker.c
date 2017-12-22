@@ -48,10 +48,17 @@ int n, max;
 
 ssize_t fortune_read(struct file *file, char *buf, size_t count, loff_t *f_pos)
 {
+	if (n == 0 || *f_pos > 0)
+		return 0;
 	int len = 0;
 	int i;
-	len += sprintf(buf, "%s: %d:%d:%d:%d\n", programs[0].name, programs[0].days, programs[0].hours, programs[0].mins, programs[0].secs);
-
+	for (i = 0; i < n; i++) {
+		char b[100];
+		len += sprintf(b, "%s: %d:%d:%d:%d\n", programs[i].name, programs[i].days, 
+		programs[i].hours, programs[i].mins, programs[i].secs);
+		strcat(buf, b);
+	}
+	*f_pos += len;
 	return len;
 }
 
@@ -113,13 +120,28 @@ void my_timer_callback(unsigned long data)
 		}
 		if (!checked)
 		{
-			window_time one;
-			strcpy(one.name, cookie_buf);
-			one.secs = 1;
-			one.mins = 0;
-			one.hours = 0;
-			one.days = 0;
-			programs[n] = one;
+			if (n == max)
+ 			{
+ 				window_time *new_programs;
+ 				new_programs = (window_time*)vmalloc((max+10)*sizeof(window_time));
+				if (!new_programs) {
+					printk( KERN_ERR "time-tracker: ERROR. couldn't copy realloc array\n" );
+					return;
+				}
+ 				for (i=0; i < n; i++)
+ 				{
+ 					new_programs[i] = programs[i];
+ 				}
+ 				vfree(programs);
+ 				programs = new_programs;
+ 				max = 2*max;
+ 			}
+
+			strcpy(programs[n].name, cookie_buf);
+			programs[n].secs = 1;
+			programs[n].mins = 0;
+			programs[n].hours = 0;
+			programs[n].days = 0;
 			n++;
 		}
 	}
@@ -132,9 +154,9 @@ void my_timer_callback(unsigned long data)
 
 int fortune_init(void)
 {	
-	programs = (window_time*)vmalloc(10*sizeof(window_time));
+	programs = (window_time*)vmalloc(100*sizeof(window_time));
 	n = 0;
-	max = 10;
+	max = 100;
 	if (!programs)
 	{
 		printk(KERN_INFO "time-tracker: Can't allocate memory for programs array.\n");
