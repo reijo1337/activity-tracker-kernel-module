@@ -9,7 +9,7 @@ Kernel module for linux which tracks user activity (X-server)
 
 Собирать демона надо через Qt Creator, мне было лень писать CMake =)
 
-Собирать демона надо через команду make
+Собирать модуль ядра надо через команду make
 
 Далее под root правами запускаем модуль
 
